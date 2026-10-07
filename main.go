@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 
 	_ "github.com/lib/pq"
@@ -53,8 +52,10 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", statusHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.countHandler)
+	mux.HandleFunc("GET /api/chirps", apiCfg.getChirpsHandler)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getChirpHandler)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
-	mux.HandleFunc("POST /api/chirps", apiCfg.chirpsHandler)
+	mux.HandleFunc("POST /api/chirps", apiCfg.createChirpsHandler)
 	mux.HandleFunc("POST /api/users", apiCfg.usersHandler)
 
 	log.Printf("Serving on port: %s\n", port)
@@ -66,6 +67,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	w.Write([]byte("OK"))
 }
+
 func (cfg *apiConfig) countHandler(w http.ResponseWriter, r *http.Request) {
 	message_string := fmt.Sprintf(
 		"<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>", cfg.fileserverHits.Load())
@@ -82,7 +84,7 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := cfg.dbQueries.DeleteUsers(r.Context()); err != nil {
-		respondWithError(w, 400, "error deleting users")
+		respondWithError(w, 400, "error deleting users", err)
 	}
 	w.Write([]byte("OK"))
 }
@@ -92,40 +94,6 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 		cfg.fileserverHits.Add(1)
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
-	type Chirp struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
-	}
-	decoder := json.NewDecoder(r.Body)
-	chirp := &Chirp{}
-	err := decoder.Decode(chirp)
-	if err != nil {
-		log.Printf("Error decoding chirp: %s", err)
-		respondWithError(w, 400, "Something went wrong")
-		return
-	}
-
-	if len(chirp.Body) > 140 {
-		respondWithError(w, 400, "Chirp is too long")
-		return
-	}
-	chirpParams := database.CreateChirpParams{
-		Body: chirp.Body,
-		UserID: uuid.NullUUID{
-			UUID:  chirp.UserID,
-			Valid: true,
-		},
-	}
-	chirpResp, err := cfg.dbQueries.CreateChirp(r.Context(), chirpParams)
-	if err != nil {
-		log.Printf("Error adding chirp to database: %s", err)
-		respondWithError(w, 400, "Something went wrong")
-		return
-	}
-	respondWithJSON(w, 201, chirpResp)
 }
 
 func (cfg *apiConfig) usersHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,15 +109,13 @@ func (cfg *apiConfig) usersHandler(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(userJson)
 
 	if err != nil {
-		log.Printf("Error decoding user: %s", err)
-		respondWithError(w, 400, "Something went wrong")
+		respondWithError(w, 400, "Something went wrong", err)
 		return
 	}
 
 	user, err := cfg.dbQueries.CreateUser(r.Context(), userJson.Email)
 	if err != nil {
-		log.Printf("Error decoding chirp: %s", err)
-		respondWithError(w, 400, "Something went wrong")
+		respondWithError(w, 400, "Something went wrong", err)
 		return
 	}
 	respondWithJSON(w, 200, user)
