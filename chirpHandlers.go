@@ -65,7 +65,7 @@ func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	chirpParams := database.CreateChirpParams{
-		Body: chirp.Body,
+		Body: censor(chirp.Body),
 		UserID: uuid.NullUUID{
 			UUID:  chirp.UserID,
 			Valid: true,
