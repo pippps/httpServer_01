@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/pippps/httpServer_01/internal/database"
+	"github.com/pippps/httpServer_01/internal/auth"
 )
 
 
@@ -33,9 +34,23 @@ func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request
 		Body   string    `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
 	}
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil{
+		log.Print(err)
+		respondWithError(w, 400, "Something went wrong", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(tokenString, cfg.secret)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
+		return
+	}
 	decoder := json.NewDecoder(r.Body)
-	chirp := &Chirp{}
-	err := decoder.Decode(chirp)
+	chirp := &Chirp{
+		UserID: userID,
+	}
+	err = decoder.Decode(chirp)
 	if err != nil {
 		log.Printf("Error decoding chirp: %s", err)
 		respondWithError(w, 400, "Something went wrong", err)

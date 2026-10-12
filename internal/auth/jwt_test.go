@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	//"net/http"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/pippps/httpServer_01/internal/auth"
@@ -150,3 +151,18 @@ func TestValidateJWT(t *testing.T) {
 	}
 
 }
+
+
+/*func TestGetBearerToken(t *testing.T) {
+	req := http.Request{}
+	client := http.Client{}
+	client.do()
+	tests := []struct {
+		name string
+		head http.Header
+		want string
+		wantErr bool
+	}{
+		name: "test",
+	}
+}*/

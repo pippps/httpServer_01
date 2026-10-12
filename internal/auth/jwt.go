@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -37,7 +40,16 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 	id, err := uuid.Parse(idString)
 	if err != nil {
-		return id, err
+		return uuid.UUID{}, err
 	}
 	return id, nil
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	rawToken := headers.Get("Authorization")
+	token, ok := strings.CutPrefix(rawToken, "Bearer ")
+	if !ok {
+		return rawToken, fmt.Errorf("unauthorized token")
+	}
+	return token, nil
 }

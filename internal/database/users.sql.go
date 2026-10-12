@@ -76,3 +76,42 @@ func (q *Queries) GetUser(ctx context.Context, email string) (User, error) {
 	)
 	return i, err
 }
+
+const modUser = `-- name: ModUser :one
+UPDATE users
+SET
+    email = $2,
+    updated_at = NOW(),
+    hashed_password = $3
+WHERE id = $1
+RETURNING
+    id,
+    created_at,
+    updated_at,
+    email
+`
+
+type ModUserParams struct {
+	ID             uuid.UUID
+	Email          string
+	HashedPassword string
+}
+
+type ModUserRow struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Email     string
+}
+
+func (q *Queries) ModUser(ctx context.Context, arg ModUserParams) (ModUserRow, error) {
+	row := q.db.QueryRowContext(ctx, modUser, arg.ID, arg.Email, arg.HashedPassword)
+	var i ModUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+	)
+	return i, err
+}

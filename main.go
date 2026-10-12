@@ -17,6 +17,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
 	platform       string
+	secret         string
 }
 
 func main() {
@@ -28,6 +29,7 @@ func main() {
 	}
 	defer db.Close()
 	platform := os.Getenv("PLATFORM")
+	secret := os.Getenv("SECRET")
 
 	const port = "8080"
 	const filePathRoot = "."
@@ -37,6 +39,7 @@ func main() {
 	apiCfg := &apiConfig{
 		dbQueries: database.New(db),
 		platform:  platform,
+		secret: secret,
 	}
 
 	srv := &http.Server{
@@ -54,6 +57,9 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", apiCfg.createChirpsHandler)
 	mux.HandleFunc("POST /api/users", apiCfg.usersHandler)
 	mux.HandleFunc("POST /api/login", apiCfg.loginHandler)
+	mux.HandleFunc("POST /api/refresh", apiCfg.refreshHandler)
+	mux.HandleFunc("POST /api/revoke", apiCfg.revokeHandler)
+	mux.HandleFunc("PUT /api/users", apiCfg.modUserHandler)
 
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(srv.ListenAndServe())
