@@ -18,6 +18,7 @@ type apiConfig struct {
 	dbQueries      *database.Queries
 	platform       string
 	secret         string
+	polkaKey       string
 }
 
 func main() {
@@ -28,8 +29,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	platform := os.Getenv("PLATFORM")
-	secret := os.Getenv("SECRET")
 
 	const port = "8080"
 	const filePathRoot = "."
@@ -38,8 +37,9 @@ func main() {
 
 	apiCfg := &apiConfig{
 		dbQueries: database.New(db),
-		platform:  platform,
-		secret: secret,
+		platform:  os.Getenv("PLATFORM"),
+		secret:    os.Getenv("SECRET"),
+		polkaKey:  os.Getenv("POLKA_KEY"),
 	}
 
 	srv := &http.Server{
@@ -61,7 +61,7 @@ func main() {
 	mux.HandleFunc("POST /api/revoke", apiCfg.revokeHandler)
 	mux.HandleFunc("PUT /api/users", apiCfg.modUserHandler)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.deleteChirpHandler)
-
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.upgradeHandler)
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(srv.ListenAndServe())
 }

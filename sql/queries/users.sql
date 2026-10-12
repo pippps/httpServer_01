@@ -29,4 +29,12 @@ RETURNING
     id,
     created_at,
     updated_at,
-    email;
+    email,
+    is_chirpy_red;
+
+-- name: UpgradeChirpyRed :exec
+UPDATE users
+SET
+    is_chirpy_red = true,
+    updated_at = NOW()
+WHERE id = $1;

@@ -23,6 +23,7 @@ type UserResp struct {
 	Email        string
 	Token        string
 	RefreshToken string
+	Is_chirpy_red bool
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +104,7 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		Email:        dbUser.Email,
 		Token:        token,
 		RefreshToken: refreshToken,
+		Is_chirpy_red: dbUser.IsChirpyRed,
 	}
 	respondWithJSON(w, 200, userResp)
 }

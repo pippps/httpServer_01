@@ -59,7 +59,7 @@ func (q *Queries) DeleteUsers(ctx context.Context) error {
 
 const getUser = `-- name: GetUser :one
 SELECT
-    id, created_at, updated_at, email, hashed_password
+    id, created_at, updated_at, email, hashed_password, is_chirpy_red
 FROM users
 WHERE email = $1
 `
@@ -73,6 +73,7 @@ func (q *Queries) GetUser(ctx context.Context, email string) (User, error) {
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
@@ -88,7 +89,8 @@ RETURNING
     id,
     created_at,
     updated_at,
-    email
+    email,
+    is_chirpy_red
 `
 
 type ModUserParams struct {
@@ -98,10 +100,11 @@ type ModUserParams struct {
 }
 
 type ModUserRow struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Email     string
+	ID          uuid.UUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Email       string
+	IsChirpyRed bool
 }
 
 func (q *Queries) ModUser(ctx context.Context, arg ModUserParams) (ModUserRow, error) {
@@ -112,6 +115,20 @@ func (q *Queries) ModUser(ctx context.Context, arg ModUserParams) (ModUserRow, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.IsChirpyRed,
 	)
 	return i, err
+}
+
+const upgradeChirpyRed = `-- name: UpgradeChirpyRed :exec
+UPDATE users
+SET
+    is_chirpy_red = true,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) UpgradeChirpyRed(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, upgradeChirpyRed, id)
+	return err
 }
