@@ -12,19 +12,37 @@ import (
 	"github.com/pippps/httpServer_01/internal/database"
 )
 
-
 func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.dbQueries.GetChirps(r.Context())
+	authorIDS := r.URL.Query().Get("author_id")
+	if authorIDS == "" {
+		chirps, err := cfg.dbQueries.GetChirps(r.Context())
+		if err != nil {
+			respondWithError(w, 400, "Something went wrong", err)
+			return
+		}
+
+		respondWithJSON(w, 200, chirps)
+		return
+	}
+	authorID, err := uuid.Parse(authorIDS)
 	if err != nil {
-		respondWithError(w, 400, "Something went wrong", err)
+		respondWithError(w, 400, "invalid ID", err)
+		return
+	}
+	chirps, err := cfg.dbQueries.GetChirpsByAuthor(r.Context(), authorID)
+	if err != nil {
+		respondWithError(w, 400, "No chirps found for this author", err)
 		return
 	}
 	respondWithJSON(w, 200, chirps)
 }
 
-func (cfg *apiConfig) getChirpHandler(w http.ResponseWriter, r *http.Request){
-	chirpID := r.PathValue("chirpID")
-	chirp, err := cfg.dbQueries.GetChirp(r.Context(),uuid.MustParse(chirpID))
+func (cfg *apiConfig) getChirpHandler(w http.ResponseWriter, r *http.Request) {
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, 400, "Something went wrong", err)
+	}
+	chirp, err := cfg.dbQueries.GetChirp(r.Context(), chirpID)
 	if err != nil {
 		respondWithError(w, 404, "Something went wrong", err)
 		return
@@ -38,7 +56,7 @@ func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request
 		UserID uuid.UUID `json:"user_id"`
 	}
 	tokenString, err := auth.GetBearerToken(r.Header)
-	if err != nil{
+	if err != nil {
 		log.Print(err)
 		respondWithError(w, 400, "Something went wrong", err)
 		return
@@ -65,11 +83,8 @@ func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	chirpParams := database.CreateChirpParams{
-		Body: censor(chirp.Body),
-		UserID: uuid.NullUUID{
-			UUID:  chirp.UserID,
-			Valid: true,
-		},
+		Body:   censor(chirp.Body),
+		UserID: chirp.UserID,
 	}
 	chirpResp, err := cfg.dbQueries.CreateChirp(r.Context(), chirpParams)
 	if err != nil {
@@ -79,16 +94,16 @@ func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request
 	respondWithJSON(w, 201, chirpResp)
 }
 
-func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request){
+func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w, 401, "Unauthorized", err)
-		return 
+		return
 	}
 	userID, err := auth.ValidateJWT(token, cfg.secret)
 	if err != nil {
 		respondWithError(w, 401, "Unauthorized", err)
-		return 
+		return
 	}
 	chirpID := r.PathValue("chirpID")
 	dbChirp, err := cfg.dbQueries.GetChirp(r.Context(), uuid.MustParse(chirpID))
@@ -96,7 +111,7 @@ func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, 404, "Chirp not found", err)
 		return
 	}
-	if dbChirp.UserID.UUID != userID {
+	if dbChirp.UserID != userID {
 		respondWithError(w, 403, "Unauthorized", fmt.Errorf("client asked to delete someone else chirp"))
 		return
 	}
